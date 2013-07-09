@@ -25,7 +25,13 @@ var fs = require('fs');
 var program = require('commander');
 var cheerio = require('cheerio');
 var HTMLFILE_DEFAULT = "index.html";
+var HTMLURL_DEFAULT="abc";
 var CHECKSFILE_DEFAULT = "checks.json";
+
+var rest = require('restler');
+var tmpfile="tmp.html";
+var util = require('util');
+
 
 var assertFileExists = function(infile) {
     var instr = infile.toString();
@@ -36,6 +42,10 @@ var assertFileExists = function(infile) {
     return instr;
 };
 
+var assertURLExists = function(inURL) {
+    var instr = inURL.toString();
+    return instr;
+}
 var cheerioHtmlFile = function(htmlfile) {
     return cheerio.load(fs.readFileSync(htmlfile));
 };
@@ -61,14 +71,57 @@ var clone = function(fn) {
     return fn.bind({});
 };
 
+var buildfn = function(tmpfile,checks) {
+ var response2console = function(result, response) {
+        if (result instanceof Error) {
+            console.error('Error: ' + util.format(response.message));
+        } else {
+            console.error("Wrote %s", tmpfile);
+            fs.writeFileSync(tmpfile, result);
+            //csv2console(csvfile, headers);
+	  parseFile(checkfile, checks) ; 
+        }
+    };
+return response2console;
+};
+
+var parseFile = function(htmlfile, checks){
+
+    var checkJson = checkHtmlFile(htmlfile, checks)
+    var outJson = JSON.stringify(checkJson, null, 4);
+    console.log(outJson);
+};
+
+
+
 if(require.main == module) {
     program
         .option('-c, --checks <check_file>', 'Path to checks.json', clone(assertFileExists), CHECKSFILE_DEFAULT)
         .option('-f, --file <html_file>', 'Path to index.html', clone(assertFileExists), HTMLFILE_DEFAULT)
+        .option('-u, --url <html_url>', 'URL to index.html', clone(assertURLExists), HTMLURL_DEFAULT)
         .parse(process.argv);
-    var checkJson = checkHtmlFile(program.file, program.checks);
-    var outJson = JSON.stringify(checkJson, null, 4);
-    console.log(outJson);
+/*
+    rest.get(program.url).on('complete', function(data) {
+  console.log(data[0].message); // auto convert to object
+   console.log ("hello");
+});
+*/
+
+
+    //process.exit();
+    var checkfile;
+    if (program.url != HTMLURL_DEFAULT){
+	checkfile=tmpfile;
+	console.log("DEBUG: checks=%s, url=%s", program.checks, program.url);
+    	var response2console = buildfn(tmpfile, program.checks);
+   	rest.get(program.url).on('complete',response2console);	
+	//setTimeout(parseFile(checkfile, program.checks), 5000); 	
+    }
+    else{
+	checkfile=program.file;
+	parseFile(checkfile, program.checks);
+    }
+
 } else {
     exports.checkHtmlFile = checkHtmlFile;
 }
